@@ -22,7 +22,10 @@ import static com.codeborne.selenide.Selenide.*;
 import static org.junit.jupiter.api.Assertions.fail;
 
 public class MainPageTest {
-    String urlsPaths = "src/test/resources/docs-enosix-io.txt";
+    public static final String DOCS_ENOSIX_IO_HOST = "docs.enosix.io";
+    public static final String SALMON_BEACH_HOST = "salmon-beach-039a75d0f.3.azurestaticapps.net";
+    String oldSiteUrlsPaths = "src/test/resources/docs-enosix-io.txt";
+    String newSiteUrlsPaths = "src/test/resources/salmon-beach.txt";
     @BeforeAll
     public static void setUpAll() {
         Configuration.browserSize = "1920x1080";
@@ -35,40 +38,53 @@ public class MainPageTest {
         Configuration.browserCapabilities = new ChromeOptions().addArguments("--remote-allow-origins=*");
     }
     @Test
-    public void captureNewScreenshots() {
+    public void captureScreenshotsThatExistInOldButNotNew() {
         try {
-            BufferedReader br = new BufferedReader(new FileReader(urlsPaths));
+
+            BufferedReader br = new BufferedReader(new FileReader(oldSiteUrlsPaths));
             String line;
             List<String> brokenUrls = new LinkedList<>();
 
+            // For every URL scraped from the old documentation site
             while((line = br.readLine()) != null) {
+                // the original URL in case we need to get a screenshot for comparison
                 var originalLine = line;
-                line = line.replace("docs.enosix.io","salmon-beach-039a75d0f.3.azurestaticapps.net");
-//                System.out.println(line);
+
+                // Change the host to the new documentation site, not the old
+                line = line.replace(DOCS_ENOSIX_IO_HOST, SALMON_BEACH_HOST);
+
+                // Open the page on the new documentation site
                 open(line);
+
+                // Issue a HEAD request  to confirm the page exists on the new site
                 HttpURLConnection cn = (HttpURLConnection)new URL(webdriver().driver().getWebDriver().getCurrentUrl()).openConnection();
                 cn.setRequestMethod("HEAD");
                 // connection initiate
                 cn.connect();
-                //get response code
+                // get response code
                 int res = cn.getResponseCode();
-                if(res == 404) {
-//                    System.out.println(line);
-                    brokenUrls.add(line);
-                    String screenshot = screenshot("/downloads/screenshots/"
-                            + line.substring("https://salmon-beach-039a75d0f.3.azurestaticapps.net/".length())
-                            .replace(':', '_')
-                            .replace('-', '_')
-                            .replace('/', '-')
-                            + "-salmon-beach-039a75d0f-3-azurestaticapps-net");
-                    open(originalLine);
-                    screenshot = screenshot("/downloads/screenshots/"
-                            + line.substring("https://salmon-beach-039a75d0f.3.azurestaticapps.net/".length())
-                            .replace(':', '_')
-                            .replace('-', '_')
-                            .replace('/', '-')
-                            + "-docs-enosix-io");
 
+                // If we get anything other than a 200 SUCCESS from the url on the new site
+                if(res != 200) {
+                    // Add this to our list of broken URLs
+                    brokenUrls.add(line);
+
+                    // Take a screenshot of this broken page (likely should be a 404 page or an error page)
+                    String screenshotUrlName = line.substring(("https://"+SALMON_BEACH_HOST+"/").length())
+                            .replace(':', '_')
+                            .replace('-', '_')
+                            .replace('/', '-');
+                    String screenshot = screenshot("/screenshots/"
+                            + screenshotUrlName
+                            + "-"
+                            + SALMON_BEACH_HOST);
+
+                    // Take a screenshot of the page from the old documentation site for comparison
+                    open(originalLine);
+                    screenshot = screenshot("/screenshots/"
+                            + screenshotUrlName
+                            + "-"
+                            + DOCS_ENOSIX_IO_HOST);
                 }
             }
             if(!brokenUrls.isEmpty()) {
