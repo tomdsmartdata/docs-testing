@@ -40,3 +40,6 @@ build/
 
 ### Test framework results
 allure-results
+
+### Jenv
+.java-version
